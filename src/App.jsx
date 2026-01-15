@@ -1,50 +1,50 @@
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
 import { supabase } from './supabaseClient'
+import Home from './Home'
+import CreateEvent from './CreateEvent'
+import Auth from './Auth'
+import MyEvents from './MyEvents'
+import Admin from './Admin'
 
 function App() {
-  const [events, setEvents] = useState([])
-  const [status, setStatus] = useState('Loading...')
+  const [session, setSession] = useState(null)
 
   useEffect(() => {
-    fetchEvents()
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+    return () => subscription.unsubscribe()
   }, [])
 
-  async function fetchEvents() {
-    // 1. Try to get data
-    const { data, error } = await supabase
-      .from('events')
-      .select('*')
-    
-    // 2. Check for problems
-    if (error) {
-      console.log(error)
-      setStatus('ERROR: ' + error.message)
-    } 
-    else if (data && data.length === 0) {
-      setStatus('Success! But database returned 0 events. (Check RLS or Table)')
-    } 
-    else {
-      setStatus('') // Clear status if we found data
-      setEvents(data)
-    }
-  }
+  if (!session) return <Auth />
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
-      <h1>Campus Events</h1>
-      
-      {/* This will show us the error message */}
-      <h3 style={{ color: 'red' }}>{status}</h3>
-
-      {events.map((event) => (
-        <div key={event.id} style={{ border: '1px solid #ccc', padding: '15px', margin: '10px 0', borderRadius: '8px' }}>
-          <h2>{event.title}</h2>
-          <p><strong>Date:</strong> {event.date}</p>
-          <p><strong>Location:</strong> {event.location}</p>
-          <p>{event.description}</p>
+    <BrowserRouter>
+      <nav style={{ 
+        padding: '15px', background: '#1a1a1a', color: 'white', 
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.3)'
+      }}>
+        <div style={{ display: 'flex', gap: '20px' }}>
+          <Link to="/" style={{ color: 'white', textDecoration: 'none', fontWeight: 'bold' }}>🏠 Hub</Link>
+          <Link to="/my-rsvps" style={{ color: 'white', textDecoration: 'none' }}>📅 My RSVPs</Link>
+          <Link to="/create" style={{ color: 'white', textDecoration: 'none' }}>➕ Post Event</Link>
+          <Link to="/admin" style={{ color: '#ffc107', textDecoration: 'none', fontWeight: 'bold' }}>👮 Admin</Link>
         </div>
-      ))}
-    </div>
+        <button onClick={() => supabase.auth.signOut()} style={{ background: '#ff4444', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer' }}>Logout</button>
+      </nav>
+      
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/create" element={<CreateEvent />} />
+        <Route path="/my-rsvps" element={<MyEvents />} />
+        <Route path="/admin" element={<Admin />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
 
